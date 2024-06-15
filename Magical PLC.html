@@ -1,0 +1,422 @@
+<!DOCTYPE HTML>
+<html lang="ko">
+<HEAD>
+<Title>Magical PLC_V1.5.0</Title>
+<!---외부 자바스크립트 링크--->
+<script type="text/javascript" src="jsp\class\TimerBit.js"></script>
+<script type="text/javascript" src="jsp\class\PulseBIT.js"></script>
+<script type="text/javascript" src="jsp\class\LatchBIT.js"></script>
+<script type="text/javascript" src="jsp\Display\DisplayExternXY.js"></script>
+<script type="text/javascript" src="jsp\Display\DisplayWordD.js"></script>
+<script type="text/javascript" src="jsp\Display\DisplayObjectStatus.js"></script>
+<script type="text/javascript" src="jsp\Object\CommonFunction.js"></script>
+<script type="text/javascript" src="jsp\Object\ConvertFunction.js"></script>
+<script type="text/javascript" src="jsp\Control\ControlWordD.js"></script>
+<script type="text/javascript" src="jsp\Control\LogicalOperator.js"></script>
+<script type="text/javascript" src="Scan\Program.txt"></script>
+</HEAD>
+<BODY>
+<script>
+// Variable of System
+let tScanTime = 10;	//단위 스캔타임
+
+//XY Address
+let X=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+let Y=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+
+//D-Address
+let D = new Array(); for(i =0; i< 100; i++) D[i] = 0;
+
+//특수 Address
+let T = new Array(); for(i =0; i< 20; i++) T[i] = new TimerBit(0);
+
+let P = new Array(); for(i =0; i< 100; i++) P[i] = new PulseBit();
+
+let L = new Array(); for(i =0; i< 100; i++) L[i] = new LatchBit();
+
+let TT;
+
+let Word = 0;
+let bit = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+
+//스캔 타이머
+let Scan = setInterval(function()
+{
+	//주기마다 동작할 내용
+	//프로그램 스캐닝
+	ScanProgram();
+
+	//XY상태 업데이트
+	for(i = 0; i < 16; i++)
+	{
+		DisplayStatusX(i);
+		DisplayStatusY(i);
+	}
+
+	//D상태 업데이트
+	UpdateAddressD();
+
+	//메인 스크린 UI 변경
+	UpdateScreen();
+
+}, tScanTime);
+
+//이벤트 등록
+//X주소 동작 -> 토글, 키보드로 사용
+
+// 터치화면 활성화로, 키보드 이벤트 억제
+window.addEventListener("keypress", (e) => {
+	const key = e.key;
+	if(key == "q") {X[0] = X[0] ^ true;}
+	if(key == "w") {X[1] = X[1] ^ true;}
+	if(key == "e") {X[2] = X[2] ^ true;}
+	if(key == "r") {X[3] = X[3] ^ true;}
+	if(key == "t") {X[4] = X[4] ^ true;}
+	if(key == "y") {X[5] = X[5] ^ true;}
+	if(key == "u") {X[6] = X[6] ^ true;}
+	if(key == "i") {X[7] = X[7] ^ true;}
+
+	if(key == "a") {X[8] = X[8] ^ true;}
+	if(key == "s") {X[9] = X[9] ^ true;}
+	if(key == "d") {X[10] = X[10] ^ true;}
+	if(key == "f") {X[11] = X[11] ^ true;}
+	if(key == "g") {X[12] = X[12] ^ true;}
+	if(key == "h") {X[13] = X[13] ^ true;}
+	if(key == "j") {X[14] = X[14] ^ true;}
+	if(key == "k") {X[15] = X[15] ^ true;}
+});
+
+function DisplayForm(Sel)
+{
+	Table0 = document.getElementById("Table_XY");
+	Table1 = document.getElementById("Table_D");
+
+	switch(Sel)
+	{
+		case 0:
+			if(Table0.style.display == "none") Table0.style.display = "block"
+			else Table0.style.display = "none"
+			break;
+		case 1:
+			if(Table1.style.display == "none") Table1.style.display = "block"
+			else Table1.style.display = "none"
+			break;
+	}
+}
+</script>
+<!---표시버튼--->
+<form>
+<input type="button" value="XY-InterFace" onclick="DisplayForm(0)"></input>
+<input type="button" value="D-Memory" onclick="DisplayForm(1)" ></input>
+</form>
+</div>
+<!-- XY_Address -->
+<div id="Table_XY" style="display:block">
+<h2>XY-External Address</h2>
+<table border="1">
+<thead>
+<td align="center" width="50" bgcolor="silver"><b>X입력</b></td>
+<td align="center" width="50" bgcolor="silver"><b>X상태</b></td>
+<td align="center" width="50" bgcolor="silver"><b>Y출력</b></td>
+<td align="center" width="50" bgcolor="silver"><b>Y상태</b></td>
+</thead>
+<tbody>
+<td bgcolor="silver">X0</td>
+<td id="x0">-</td>
+<td bgcolor="silver">Y0</td>
+<td id="y0">-</td>
+<tr>
+<td bgcolor="silver">X1</td>
+<td id="x1">-</td>
+<td bgcolor="silver">Y1</td>
+<td id="y1">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X2</td>
+<td id="x2">-</td>
+<td bgcolor="silver">Y2</td>
+<td id="y2">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X3</td>
+<td id="x3">-</td>
+<td bgcolor="silver">Y3</td>
+<td id="y3">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X4</td>
+<td id="x4">-</td>
+<td bgcolor="silver">Y4</td>
+<td id="y4">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X5</td>
+<td id="x5">-</td>
+<td bgcolor="silver">Y5</td>
+<td id="y5">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X6</td>
+<td id="x6">-</td>
+<td bgcolor="silver">Y6</td>
+<td id="y6">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X7</td>
+<td id="x7">-</td>
+<td bgcolor="silver">Y7</td>
+<td id="y7">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X8</td>
+<td id="x8">-</td>
+<td bgcolor="silver">Y8</td>
+<td id="y8">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X9</td>
+<td id="x9">-</td>
+<td bgcolor="silver">Y9</td>
+<td id="y9">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X10</td>
+<td id="x10">-</td>
+<td bgcolor="silver">Y10</td>
+<td id="y10">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X11</td>
+<td id="x11">-</td>
+<td bgcolor="silver">Y11</td>
+<td id="y11">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X12</td>
+<td id="x12">-</td>
+<td bgcolor="silver">Y12</td>
+<td id="y12">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X13</td>
+<td id="x13">-</td>
+<td bgcolor="silver">Y13</td>
+<td id="y13">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X14</td>
+<td id="x14">-</td>
+<td bgcolor="silver">Y14</td>
+<td id="y14">-</td>
+</tr>
+<tr>
+<td bgcolor="silver">X15</td>
+<td id="x15">-</td>
+<td bgcolor="silver">Y15</td>
+<td id="y15">-</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- D_Word Memory -->
+<div  id="Table_D" style="display:none">
+<h2>D-Memory Address</h2>
+<table border="1">
+<thead>
+<tr>
+<td id="LayerD" width="50" bgcolor="silver">D000</td>
+<td width="60" align="right" bgcolor="silver">+0</td>
+<td width="60" align="right" bgcolor="silver">+1</td>
+<td width="60" align="right" bgcolor="silver">+2</td>
+<td width="60" align="right" bgcolor="silver">+3</td>
+<td width="60" align="right" bgcolor="silver">+4</td>
+<td width="60" align="right" bgcolor="silver">+5</td>
+<td width="60" align="right" bgcolor="silver">+6</td>
+<td width="60" align="right" bgcolor="silver">+7</td>
+<td width="60" align="right" bgcolor="silver">+8</td>
+<td width="60" align="right" bgcolor="silver">+9</td>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td bgcolor="silver">+00</td>
+<td id="Dz00" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz01" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz02" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz03" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz04" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz05" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz06" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz07" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz08" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz09" onclick="WriteAddressD(this.id)">0</td>
+</tr>
+<tr>
+<td bgcolor="silver">+10</td>
+<td id="Dz10" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz11" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz12" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz13" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz14" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz15" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz16" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz17" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz18" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz19" onclick="WriteAddressD(this.id)">0</td>
+</tr>
+<tr>
+<td bgcolor="silver">+20</td>
+<td id="Dz20" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz21" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz22" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz23" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz24" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz25" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz26" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz27" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz28" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz29" onclick="WriteAddressD(this.id)">0</td>
+</tr>
+<tr>
+<td bgcolor="silver">+30</td>
+<td id="Dz30" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz31" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz32" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz33" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz34" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz35" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz36" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz37" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz38" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz39" onclick="WriteAddressD(this.id)">0</td>
+</tr>
+<tr>
+<td bgcolor="silver">+40</td>
+<td id="Dz40" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz41" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz42" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz43" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz44" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz45" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz46" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz47" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz48" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz49" onclick="WriteAddressD(this.id)">0</td>
+</tr>
+<tr>
+<td bgcolor="silver">+50</td>
+<td id="Dz50" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz51" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz52" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz53" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz54" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz55" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz56" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz57" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz58" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz59" onclick="WriteAddressD(this.id)">0</td>
+</tr>
+<tr>
+<td bgcolor="silver">+60</td>
+<td id="Dz60" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz61" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz62" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz63" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz64" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz65" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz66" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz67" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz68" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz69" onclick="WriteAddressD(this.id)">0</td>
+</tr>
+<tr>
+<td bgcolor="silver">+70</td>
+<td id="Dz70" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz71" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz72" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz73" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz74" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz75" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz76" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz77" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz78" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz79" onclick="WriteAddressD(this.id)">0</td>
+</tr>
+<tr>
+<td bgcolor="silver">+80</td>
+<td id="Dz80" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz81" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz82" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz83" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz84" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz85" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz86" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz87" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz88" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz89" onclick="WriteAddressD(this.id)">0</td>
+</tr>
+<tr>
+<td bgcolor="silver">+90</td>
+<td id="Dz90" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz91" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz92" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz93" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz94" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz95" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz96" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz97" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz98" onclick="WriteAddressD(this.id)">0</td>
+<td id="Dz99" onclick="WriteAddressD(this.id)">0</td>
+</tr>
+</tbody>
+</table>
+<br>
+<h4>* Word Calculator</h4>
+<table border="1">
+<thead>
+<tr>
+<td rowspan="2" align="center" width="100">Word</td>
+<td colspan="16" align="center">Bit</td>
+</tr>
+<tr>
+<td width="30" align="center">15</td>
+<td width="30" align="center">14</td>
+<td width="30" align="center">13</td>
+<td width="30" align="center">12</td>
+<td width="30" align="center">11</td>
+<td width="30" align="center">10</td>
+<td width="30" align="center">9</td>
+<td width="30" align="center">8</td>
+<td width="30" align="center">7</td>
+<td width="30" align="center">6</td>
+<td width="30" align="center">5</td>
+<td width="30" align="center">4</td>
+<td width="30" align="center">3</td>
+<td width="30" align="center">2</td>
+<td width="30" align="center">1</td>
+<td width="30" align="center">0</td>
+</tr>
+<tr>
+<td id="w0" align="center" onclick="InputWORD()">0</td>
+<td id="b15" align="center" onclick="InputBIT(15)">Off</td>
+<td id="b14" align="center" onclick="InputBIT(14)">Off</td>
+<td id="b13" align="center" onclick="InputBIT(13)">Off</td>
+<td id="b12" align="center" onclick="InputBIT(12)">Off</td>
+<td id="b11" align="center" onclick="InputBIT(11)">Off</td>
+<td id="b10" align="center" onclick="InputBIT(10)">Off</td>
+<td id="b9" align="center" onclick="InputBIT(9)">Off</td>
+<td id="b8" align="center" onclick="InputBIT(8)">Off</td>
+<td id="b7" align="center" onclick="InputBIT(7)">Off</td>
+<td id="b6" align="center" onclick="InputBIT(6)">Off</td>
+<td id="b5" align="center" onclick="InputBIT(5)">Off</td>
+<td id="b4" align="center" onclick="InputBIT(4)">Off</td>
+<td id="b3" align="center" onclick="InputBIT(3)">Off</td>
+<td id="b2" align="center" onclick="InputBIT(2)">Off</td>
+<td id="b1" align="center" onclick="InputBIT(1)">Off</td>
+<td id="b0" align="center" onclick="InputBIT(0)">Off</td>
+</tr>
+</thead>
+</table>
+</div>
+</BODY>
+</HTML>
